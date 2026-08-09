@@ -1,0 +1,71 @@
+[package]
+name        = "pdftamp"
+version     = "0.1.0"
+edition     = "2021"
+description = "Shrink PDF file size by recompressing embedded images and streams"
+license     = "AGPL-3.0-or-later"
+authors     = ["AbuKaram01"]
+repository  = "https://github.com/AbuKaram01/pdftamp"
+readme      = "README.md"
+
+[[bin]]
+name = "pdftamp"
+path = "src/main.rs"
+
+[dependencies]
+lopdf      = "0.31"
+image      = { version = "0.25", default-features = false, features = ["jpeg"] }
+flate2     = "1.0"
+weezl      = "0.2"
+anyhow     = "1.0"
+walkdir    = "2"
+clap       = { version = "4", features = ["derive"] }
+colored    = "2"
+terminal_size = "0.4"
+tempfile   = "3"
+
+[profile.release]
+opt-level     = 3
+lto           = true
+codegen-units = 1
+strip         = true
+
+# ── .deb (cargo-deb) ──────────────────────────────────────────────────────────
+[package.metadata.deb]
+name                  = "pdftamp"
+maintainer            = "AbuKaram01"
+copyright             = "2026, AbuKaram01"
+license-file          = "LICENSE"
+extended-description  = """\
+A fast CLI tool to shrink PDF file size by recompressing embedded \
+images and re-deflating streams, with lossless and lossy profiles. \
+Supports single-file and whole-directory batch compression, built \
+for both scripting and everyday command-line usage."""
+# $auto covers shared-library deps cargo-deb detects on its own.
+# jpegoptim/oxipng/pngquant/qpdf are optional accelerators (pdftamp
+# falls back to a pure-Rust path when they're missing) — so they're
+# `recommends`, not a hard `depends`, unlike a tool that can't function
+# at all without its external binary.
+depends    = "$auto"
+recommends = "jpegoptim, oxipng, pngquant, qpdf"
+section    = "utils"
+priority   = "optional"
+assets = [
+    ["target/release/pdftamp", "usr/bin/", "755"],
+]
+
+# ── .rpm (cargo-generate-rpm) ─────────────────────────────────────────────────
+[package.metadata.generate-rpm]
+release = "1"
+assets = [
+    { source = "target/release/pdftamp", dest = "/usr/bin/pdftamp", mode = "755" },
+]
+
+# Same reasoning as the .deb `recommends` above: these tools are
+# optional accelerators, not hard requirements, so they go under
+# `recommends` rather than `[package.metadata.generate-rpm.requires]`.
+[package.metadata.generate-rpm.recommends]
+jpegoptim = "*"
+oxipng    = "*"
+pngquant  = "*"
+qpdf      = "*"

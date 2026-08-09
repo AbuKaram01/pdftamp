@@ -1,0 +1,97 @@
+# pdftamp
+
+A CLI tool that shrinks PDF file size — nothing else. It recompresses
+embedded images and re-deflates uncompressed streams; it doesn't
+touch fonts, page structure, metadata, or encryption unless you
+explicitly ask it to.
+
+## Build
+
+```sh
+cargo build --release
+# binary at target/release/pdftamp
+```
+
+## Usage
+
+```sh
+pdftamp compress input.pdf [output.pdf] [OPTIONS]
+pdftamp compress-dir input_dir [output_dir] [OPTIONS]
+pdftamp analyze input.pdf [--allow-decrypt]
+pdftamp profiles
+```
+
+| Option              | Meaning                                                      |
+|---------------------|----------------------------------------------------------------|
+| `-p, --profile`     | `extreme`/`archive`/`email`/`ebook`/`balanced`/`office`/`print`/`lossless` (default `balanced`) |
+| `-q, --quality`     | JPEG quality override, 1-95 (ignored by `lossless`)          |
+| `-s, --strip-metadata` | Also strip document/image metadata. **Off by default**    |
+| `--allow-decrypt`   | Allow decrypting a PDF with no real password set. **Off by default** |
+| `-v, --verbose`     | Print one line per modified object                           |
+| `--if-exists`       | `refuse` (default) / `overwrite` / `rename` on a naming collision |
+| `--log-file`        | Append a plain-text record of the run to this file            |
+| `-n, --dry-run`     | Preview what would happen — nothing is created, overwritten, or renamed |
+
+`compress-dir` mirrors `input_dir`'s structure into `output_dir` if
+given, otherwise saves each file next to its own original.
+
+### `--dry-run`
+
+`-n`/`--dry-run` runs the full pipeline — loading the PDF, re-encoding
+every eligible image, deflating raw streams, and (with
+`--strip-metadata`) simulating metadata removal — entirely in memory,
+and prints exactly the numbers a real run would. The only thing it
+skips is the final write: nothing is created, overwritten, or renamed
+at the output path, its parent directories, or (for `compress-dir`
+with an explicit output directory) anywhere under the mirrored tree.
+
+It's honest about failure too: with `--if-exists=refuse`, a dry run
+against a path that's already taken reports the same "already exists"
+error a real run would — it doesn't pretend the run would have
+succeeded. Works with both `compress` and `compress-dir`, and
+combines with every other option (`--profile`, `--if-exists`,
+`--log-file`, `--verbose`, ...) exactly as it would on a real run.
+
+```sh
+pdftamp compress report.pdf --dry-run
+pdftamp compress-dir ./scans --if-exists=rename --dry-run
+```
+
+### Profiles
+
+| Profile    | Quality | For                                      |
+|------------|---------|-------------------------------------------|
+| `extreme`  | 25      | Quick previews, bulk low-priority archiving |
+| `archive`  | 50      | Documents rarely opened again              |
+| `email`    | 65      | Small enough to email or message           |
+| `ebook`    | 72      | Reading on a phone/tablet screen           |
+| `balanced` | 80      | Sensible default (used unless overridden)  |
+| `office`   | 85      | Sharper text/images for work reports       |
+| `print`    | 90      | Document will be printed                   |
+| `lossless` | —       | Zero quality loss (contracts, legal)       |
+
+## What it does and doesn't compress
+
+**Compresses:**
+- JPEG images (`DCTDecode`) — re-encoded at a lower quality
+- Raw/uncompressed and `FlateDecode`/`LZWDecode` images — converted to JPEG
+- Uncompressed ("raw") content streams — deflated
+
+**Leaves untouched:**
+- `JPXDecode` (JPEG2000), `CCITTFaxDecode` (fax scans), `JBIG2Decode` images
+- Already-`FlateDecode` content streams (already compressed)
+- Fonts, page/object structure, embedded files, form fields, JavaScript
+- Document metadata (`/Info`, XMP, per-image EXIF/ICC) — unless `--strip-metadata`
+- Encrypted PDFs — refused unless `--allow-decrypt`, and even then only
+  ones with no real password set (a genuinely password-protected file
+  can't be bypassed)
+
+**Optional external tools** (auto-detected, not required):
+`jpegoptim`, `oxipng`, `pngquant` improve image results when installed;
+`qpdf` is required for `--allow-decrypt` and as a repair fallback for
+malformed PDFs. Without them, pdftamp falls back to its own pure-Rust
+encoders for everything except decryption.
+
+## License
+
+AGPL-3.0-or-later — see [LICENSE](LICENSE).
