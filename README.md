@@ -5,9 +5,43 @@ embedded images and re-deflates uncompressed streams; it doesn't
 touch fonts, page structure, metadata, or encryption unless you
 explicitly ask it to.
 
-## Build
+## Installation
+
+### Pre-built packages (recommended)
+
+Download the latest release for your distribution from the
+[Releases](https://github.com/AbuKaram01/pdftamp/releases) page.
+
+**Debian / Ubuntu**
+```sh
+sudo apt install ./pdftamp_0.1.0-1_amd64.deb
+```
+
+**Fedora / RHEL / openSUSE**
+```sh
+sudo dnf install ./pdftamp-0.1.0-1.x86_64.rpm
+```
+
+> **Note:** `apt` and `dnf` will automatically pull in the optional
+> recommended tools (`jpegoptim`, `oxipng`, `pngquant`, `qpdf`) if
+> they're available in your repositories. If you install with
+> `dpkg -i` or `rpm -i` directly, dependencies won't be resolved
+> automatically.
+
+### Build from source
+
+Requires [Rust](https://rustup.rs/) 1.70+.
 
 ```sh
+cargo install --path .
+# or, for the latest published version:
+cargo install pdftamp
+```
+
+Or clone and build locally:
+```sh
+git clone https://github.com/AbuKaram01/pdftamp.git
+cd pdftamp
 cargo build --release
 # binary at target/release/pdftamp
 ```
