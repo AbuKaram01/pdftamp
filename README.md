@@ -55,12 +55,12 @@ Download the latest release for your distribution from the
 
 **Debian / Ubuntu**
 ```sh
-sudo apt install ./pdftamp_0.1.0-1_amd64.deb
+sudo apt install ./pdftamp_0.1.1-1_amd64.deb
 ```
 
 **Fedora / RHEL / openSUSE**
 ```sh
-sudo dnf install ./pdftamp-0.1.0-1.x86_64.rpm
+sudo dnf install ./pdftamp-0.1.1-1.x86_64.rpm
 ```
 
 > **Note:** `apt` and `dnf` will automatically pull in the optional
@@ -71,15 +71,7 @@ sudo dnf install ./pdftamp-0.1.0-1.x86_64.rpm
 
 ### Build from source
 
-Requires [Rust](https://rustup.rs/) 1.70+.
-
-```sh
-cargo install --path .
-# or, for the latest published version:
-cargo install pdftamp
-```
-
-Or clone and build locally:
+Clone and build locally:
 ```sh
 git clone https://github.com/AbuKaram01/pdftamp.git
 cd pdftamp
