@@ -24,6 +24,28 @@ When testing existing tools on aggressive settings (such as Ghostscript's `/scre
 
 `pdftamp` takes a much smarter approach. Even under its `extreme` profile, it aggressively slashes file size on real-world PDF books and media-heavy documents while preserving image clarity and avoiding pixelation as much as possible. Give it a try on your heavy PDFs!
 
+## What it does and doesn't compress
+
+**Compresses:**
+- JPEG images (`DCTDecode`) — re-encoded at a lower quality
+- Raw/uncompressed and `FlateDecode`/`LZWDecode` images — converted to JPEG
+- Uncompressed ("raw") content streams — deflated
+
+**Leaves untouched:**
+- `JPXDecode` (JPEG2000), `CCITTFaxDecode` (fax scans), `JBIG2Decode` images
+- Already-`FlateDecode` content streams (already compressed)
+- Fonts, page/object structure, embedded files, form fields, JavaScript
+- Document metadata (`/Info`, XMP, per-image EXIF/ICC) — unless `--strip-metadata`
+- Encrypted PDFs — refused unless `--allow-decrypt`, and even then only
+  ones with no real password set (a genuinely password-protected file
+  can't be bypassed)
+
+**Optional external tools** (auto-detected, not required):
+`jpegoptim`, `oxipng`, `pngquant` improve image results when installed;
+`qpdf` is required for `--allow-decrypt` and as a repair fallback for
+malformed PDFs. Without them, pdftamp falls back to its own pure-Rust
+encoders for everything except decryption.
+
 ## Installation
 
 ### Pre-built packages (recommended)
@@ -122,28 +144,6 @@ pdftamp compress-dir ./scans --if-exists=rename --dry-run
 | `office`   | 85      | Sharper text/images for work reports       |
 | `print`    | 90      | Document will be printed                   |
 | `lossless` | —       | Zero quality loss (contracts, legal)       |
-
-## What it does and doesn't compress
-
-**Compresses:**
-- JPEG images (`DCTDecode`) — re-encoded at a lower quality
-- Raw/uncompressed and `FlateDecode`/`LZWDecode` images — converted to JPEG
-- Uncompressed ("raw") content streams — deflated
-
-**Leaves untouched:**
-- `JPXDecode` (JPEG2000), `CCITTFaxDecode` (fax scans), `JBIG2Decode` images
-- Already-`FlateDecode` content streams (already compressed)
-- Fonts, page/object structure, embedded files, form fields, JavaScript
-- Document metadata (`/Info`, XMP, per-image EXIF/ICC) — unless `--strip-metadata`
-- Encrypted PDFs — refused unless `--allow-decrypt`, and even then only
-  ones with no real password set (a genuinely password-protected file
-  can't be bypassed)
-
-**Optional external tools** (auto-detected, not required):
-`jpegoptim`, `oxipng`, `pngquant` improve image results when installed;
-`qpdf` is required for `--allow-decrypt` and as a repair fallback for
-malformed PDFs. Without them, pdftamp falls back to its own pure-Rust
-encoders for everything except decryption.
 
 ## License
 
