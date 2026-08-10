@@ -145,13 +145,27 @@ fn main() -> Result<()> {
             let size = std::fs::metadata(&input)?.len();
             render::print_compress_header(&input, &output, size, &profile, &opts);
 
-            let result = compress(&input, &output, &opts);
-
+            // Written *before* compress() runs, not after — so if the
+            // run gets interrupted partway through, the log at least
+            // shows an attempt was made with these settings, instead
+            // of nothing at all. See `log`'s module doc comment.
+            let mut log_broken = false;
             if let Some(log_path) = &log_file {
                 if let Err(e) =
-                    log::write_compress(log_path, &input, &output, &profile, &opts, &result)
+                    log::write_header_compress(log_path, &input, &output, &profile, &opts)
                 {
                     render::print_log_warning(&e);
+                    log_broken = true;
+                }
+            }
+
+            let result = compress(&input, &output, &opts);
+
+            if !log_broken {
+                if let Some(log_path) = &log_file {
+                    if let Err(e) = log::write_result_compress(log_path, &result) {
+                        render::print_log_warning(&e);
+                    }
                 }
             }
 
@@ -229,28 +243,52 @@ fn main() -> Result<()> {
                 batch::DestStrategy::NextToOriginal => {
                     "next to each original (<name>-compressed.pdf)".to_string()
                 }
-                batch::DestStrategy::Mirror(dir) => format!("{dir:?}"),
+                batch::DestStrategy::Mirror(dir) => render::quoted_path(dir),
             };
             render::print_batch_header(&input_dir, &dest_description, &profile, &opts);
 
-            // Each file's result streams to the terminal the moment
-            // it's done, rather than all appearing at once at the end.
-            let batch = compress_directory(&input_dir, dest, &opts, |item| {
-                render::print_live_item(item, verbose);
-            })?;
-
-            render::print_batch_summary(&batch, opts.dry_run);
-
+            // Written *before* the batch starts, then once more per
+            // file (from the same `on_item` callback that already
+            // streams each result to the terminal live) as each one
+            // finishes, rather than only once at the very end. If the
+            // process gets interrupted partway through a large
+            // library, the log ends up showing every file that
+            // actually finished before that point instead of nothing
+            // at all — see `log`'s module doc comment for the full
+            // reasoning.
+            let mut log_broken = false;
             if let Some(log_path) = &log_file {
-                if let Err(e) = log::write_batch(
+                if let Err(e) = log::write_header_batch(
                     log_path,
                     &input_dir,
                     &dest_description,
                     &profile,
                     &opts,
-                    &batch,
                 ) {
                     render::print_log_warning(&e);
+                    log_broken = true;
+                }
+            }
+
+            let batch = compress_directory(&input_dir, dest, &opts, |item| {
+                render::print_live_item(item, verbose);
+                if !log_broken {
+                    if let Some(log_path) = &log_file {
+                        if let Err(e) = log::write_item_batch(log_path, item) {
+                            render::print_log_warning(&e);
+                            log_broken = true;
+                        }
+                    }
+                }
+            })?;
+
+            render::print_batch_summary(&batch, opts.dry_run);
+
+            if !log_broken {
+                if let Some(log_path) = &log_file {
+                    if let Err(e) = log::write_footer_batch(log_path, &batch, &opts) {
+                        render::print_log_warning(&e);
+                    }
                 }
             }
         }

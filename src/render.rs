@@ -18,6 +18,7 @@ use crate::compress::{CompressEvent, CompressOpts, Report};
 use crate::profiles::Profile;
 use crate::tools::ToolSet;
 use colored::*;
+use std::path::Path;
 
 // ════════════════════════════════════════════════════════════════
 //  Helpers
@@ -114,9 +115,36 @@ fn truncate_message(msg: &str, max_width: usize) -> String {
     format!("{cut}…")
 }
 
-/// Shortens a path (as `{:?}`-formatted by the caller — quotes and
-/// all) to at most `max_width` display columns, eliding from the
-/// *front* rather than the back. Unlike `truncate_name`, the useful
+/// Formats `path` quoted — for the same reason every path-shaped
+/// value in this file's output is quoted: many real paths contain
+/// spaces, so a plain unquoted `.display()` wouldn't mark where the
+/// path ends and the rest of the line begins. Deliberately *not*
+/// `format!("{path:?}")` though, despite `{:?}` also producing a
+/// quoted string: `Debug`'s escaping (via `char::escape_debug`)
+/// treats combining marks and bidi-control characters as needing
+/// `\u{XXXX}` escapes. Combining marks are exactly how Arabic (and
+/// Hebrew niqqud, Vietnamese, Thai, Devanagari, ...) diacritics are
+/// encoded — completely ordinary orthography, not anything unusual —
+/// so `{:?}` shredded any diacritic-bearing filename into
+/// unreadable escape codes, e.g. `"شيوعا\u{64b}.pdf"` instead of the
+/// filename exactly as it reads everywhere else: `"شيوعاً.pdf"`.
+/// This only escapes the two characters that would otherwise make
+/// the quoting itself ambiguous — a literal `"` or `\` inside the
+/// path — and leaves every other character, combining marks
+/// absolutely included, exactly as `.display()` would show it.
+pub fn quoted_path<P: AsRef<Path>>(path: P) -> String {
+    let escaped = path
+        .as_ref()
+        .display()
+        .to_string()
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"");
+    format!("\"{escaped}\"")
+}
+
+/// Shortens a path (already quoted by the caller, via
+/// [`quoted_path`]) to at most `max_width` display columns, eliding
+/// from the *front* rather than the back. Unlike `truncate_name`, the useful
 /// part of a full path is usually its tail — the file name — so a
 /// long one reads better as `"…/deep/nested/report.pdf"` than
 /// `"/home/user/deep/nested/rep…"`, which would cut off the actual
@@ -187,11 +215,11 @@ pub fn print_compress_header(
     print_dry_run_banner(opts.dry_run);
     println!(
         "  Input      : {}",
-        truncate_path(&format!("{input:?}"), path_budget)
+        truncate_path(&quoted_path(input), path_budget)
     );
     println!(
         "  Output     : {}",
-        truncate_path(&format!("{output:?}"), path_budget)
+        truncate_path(&quoted_path(output), path_budget)
     );
     println!("  Size       : {:.2} MB", mb(size));
     println!("  Profile    : {}", profile_line(profile_name, opts));
@@ -234,14 +262,14 @@ pub fn print_report(report: &Report) {
 
     if report.renamed_to_avoid_conflict {
         println!(
-            "  {} the requested output name was already taken — {} {:?} instead.",
+            "  {} the requested output name was already taken — {} {} instead.",
             "!".cyan().bold(),
             if report.dry_run {
                 "would save as"
             } else {
                 "saved as"
             },
-            report.final_output
+            quoted_path(&report.final_output)
         );
     }
 
@@ -407,7 +435,7 @@ pub fn print_batch_header(
     print_dry_run_banner(opts.dry_run);
     println!(
         "  Input dir  : {}",
-        truncate_path(&format!("{input_dir:?}"), width)
+        truncate_path(&quoted_path(input_dir), width)
     );
     println!(
         "  Output     : {}",
@@ -820,4 +848,42 @@ pub fn print_profiles_list() {
         "{}",
         "═════════════════════════════════════════════════".dimmed()
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quoted_path_wraps_a_plain_path_in_quotes() {
+        assert_eq!(
+            quoted_path(Path::new("/home/user/report.pdf")),
+            "\"/home/user/report.pdf\""
+        );
+    }
+
+    #[test]
+    fn quoted_path_preserves_arabic_combining_diacritics_unescaped() {
+        // The exact bug this function exists to fix: `{:?}` (Debug)
+        // shreds combining marks like Arabic tashkeel into `\u{XXXX}`
+        // escapes. "شيوعاً" is "شيوعا" + a combining FATHATAN
+        // (U+064B) — completely ordinary Arabic orthography.
+        let path = Path::new("شيوعاً.pdf");
+        assert_eq!(quoted_path(path), "\"شيوعاً.pdf\"");
+        // Confirm this would *not* have been true via Debug, so the
+        // test actually exercises the distinction it claims to.
+        assert_ne!(quoted_path(path), format!("{path:?}"));
+    }
+
+    #[test]
+    fn quoted_path_escapes_an_embedded_literal_quote() {
+        let path = Path::new("my \"quoted\" file.pdf");
+        assert_eq!(quoted_path(path), "\"my \\\"quoted\\\" file.pdf\"");
+    }
+
+    #[test]
+    fn quoted_path_escapes_an_embedded_literal_backslash() {
+        let path = Path::new("weird\\name.pdf");
+        assert_eq!(quoted_path(path), "\"weird\\\\name.pdf\"");
+    }
 }
