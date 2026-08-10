@@ -5,6 +5,25 @@ embedded images and re-deflates uncompressed streams; it doesn't
 touch fonts, page structure, metadata, or encryption unless you
 explicitly ask it to.
 
+## Why pdftamp?
+
+Most PDF compression tools force you to choose between bloated file sizes and ruined document quality. `pdftamp` was built around a pragmatic **80/20 approach**: focus on optimizations that yield the biggest space savings without breaking your files or compromising readability.
+
+### Core Goals & Philosophy
+
+* **Quality-First Compression:** Maximize file size reduction while preserving visual fidelity as much as possible.
+* **Non-Destructive Integrity:** Your PDFs should remain valid, clean, and fully functional—no broken layouts, corrupted fonts, or ruined files.
+* **Transparency & Control:** Clear, predictable output so you always know what was optimized and how much space you saved.
+* **Intuitive CLI:** Logical, human-friendly flags that don't require you to memorize complex legacy options.
+
+### A Note on the `extreme` Profile
+
+Don't let the name intimidate you! While **`extreme`** sounds like it might crush your document's quality, it was carefully engineered to be surprisingly usable and well worth testing.
+
+When testing existing tools on aggressive settings (such as Ghostscript's `/screen` preset or heavy compression modes in other utilities), image resolution often severely degrades, turning diagrams and photos into pixelated, unreadable mush. 
+
+`pdftamp` takes a much smarter approach. Even under its `extreme` profile, it aggressively slashes file size on real-world PDF books and media-heavy documents while preserving image clarity and avoiding pixelation as much as possible. Give it a try on your heavy PDFs!
+
 ## Installation
 
 ### Pre-built packages (recommended)
